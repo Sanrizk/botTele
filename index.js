@@ -2,12 +2,18 @@ const { TelegramClient } = require("telegram");
 const { StringSession } = require("telegram/sessions");
 const { NewMessage } = require("telegram/events");
 const input = require("input");
+const axios = require("axios"); // Import axios
+require("dotenv").config();
 
 // Ganti dengan API ID dan Hash dari https://my.telegram.org
-const apiId = 16515869; // ← ganti ini
-const apiHash = "40bd864274477f90086570fd0807e3e9"; // ← ganti ini
+const apiId = Number(process.env.API_ID); // ← ganti ini
+const apiHash = process.env.API_HASH; // ← ganti ini
 
-const stringSession = new StringSession("1BQANOTEuMTA4LjU2LjE3NwG7b131Rt4ERryQ8xlvqqBamdTfQx44fKaDPaHBVjM6o2GMzAhrwKzcbriUG89nDnVmvv1O+ZizWTxIgmJqgbI7w5B/fW2FeftreiXxEAua2XoVoT73Fk/gm2if6AXkVGbWzLy99wk7hhMM22FqC+8auKKhvkEh6itdmt/TIgkDQZYfSyGj8YPd53omdBw5E4PpKmeYSCA+LIVXZ88XBZg7udrN/nO5CNSKNUJ58HOjA1V8gV/RzNg5ylVScgpmNicZ8lH0noNKZwdl4TMcH7aIDW9lKySzDy+k/TD1y8j9XH1Af4TgF4I8eUjTl6zrXr1JwQR/+0//TiJkXGQW/fTR7Q=="); // Biarkan kosong dulu, nanti akan diisi
+// Ganti dengan API Key Gemini Anda
+// Petunjuk: https://cloud.google.com/gemini/docs/authentication/api-keys
+const geminiApiKey = process.env.GEMINI_API_KEY; // ← Ganti ini
+
+const stringSession = new StringSession(process.env.SESI_TELE); // Biarkan kosong dulu, nanti akan diisi
 
 (async () => {
   console.log("📲 Login akun Telegram kamu...");
@@ -28,18 +34,46 @@ const stringSession = new StringSession("1BQANOTEuMTA4LjU2LjE3NwG7b131Rt4ERryQ8x
 
   // Dengarkan semua pesan masuk
   client.addEventHandler(async (event) => {
-    const message = event.message.message.toLowerCase();
-    const sender = await event.message.getSender();
-    const name = sender?.firstName || "Teman";
+    // Pastikan itu adalah pesan teks dan bukan dari bot itu sendiri
+    if (event.message && event.message.message && !event.message.out) {
+      const userMessage = event.message.message;
+      const sender = await event.message.getSender();
+      const name = sender?.firstName || "Teman";
 
-    // Logika statis: jika pesan cocok
-    if (message.includes("halo nama kamu siapa")) {
-      await event.message.reply({
-        message: `Halo, aku akun Telegram-mu yang otomatis. Namaku ${name}.`
-      });
+      console.log(`Pesan dari ${name}: ${userMessage}`);
+
+      // Anda bisa menambahkan logika untuk memfilter pesan tertentu yang ingin Anda kirim ke Gemini
+      // Misalnya, hanya jika pesan dimulai dengan 'bot '
+      if (userMessage.toLowerCase().startsWith("san ")) {
+        const query = userMessage.substring(4).trim(); // Ambil teks setelah 'bot '
+
+        try {
+          const response = await axios.post(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`,
+            {
+              contents: [{ parts: [{ text: query }] }],
+            },
+            {
+              headers: {
+                "Content-Type": "application/json",
+              },
+            }
+          );
+
+          const geminiReply = response.data.candidates[0].content.parts[0].text;
+          await event.message.reply({ message: geminiReply });
+          // console.log(geminiReply);
+        } catch (error) {
+          console.error("Error calling Gemini API:", error.response ? error.response.data : error.message);
+          await event.message.reply({ message: "Maaf, ada masalah saat menghubungi Gemini AI." });
+        }
+      } else {
+        // Logika statis yang sudah ada, jika tidak ditangani oleh Gemini
+        if (userMessage.toLowerCase().includes("halo nama kamu siapa")) {
+          await event.message.reply({message: `Halo, aku akun Telegram-mu yang otomatis. Namaku ${name}.`});
+        }
+      }
     }
-
-    // Kamu bisa tambahkan if-else lain di sini juga
   }, new NewMessage({}));
 
 })();
