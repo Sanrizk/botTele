@@ -1,4 +1,4 @@
-const { TelegramClient } = require("telegram");
+const { TelegramClient, Api } = require("telegram");
 const { StringSession } = require("telegram/sessions");
 const { NewMessage } = require("telegram/events");
 const input = require("input");
@@ -48,8 +48,16 @@ const stringSession = new StringSession(process.env.SESI_TELE); // Biarkan koson
         const query = userMessage.substring(4).trim(); // Ambil teks setelah 'bot '
 
         try {
+          // add setTyping
+          await client.invoke(
+            new Api.messages.SetTyping({
+              peer: sender,
+              action: new Api.SendMessageTypingAction(),
+            })
+          );
+
           const response = await axios.post(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`,
             {
               contents: [{ parts: [{ text: query }] }],
             },
@@ -70,7 +78,7 @@ const stringSession = new StringSession(process.env.SESI_TELE); // Biarkan koson
       } else {
         // Logika statis yang sudah ada, jika tidak ditangani oleh Gemini
         if (userMessage.toLowerCase().includes("halo nama kamu siapa")) {
-          await event.message.reply({message: `Halo, aku akun Telegram-mu yang otomatis. Namaku ${name}.`});
+          await event.message.reply({ message: `Halo, aku akun Telegram-mu yang otomatis. Namaku ${name}.` });
         }
       }
     }
